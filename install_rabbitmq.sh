@@ -4,15 +4,10 @@
 #
 # Linux RabbitMQ Auto Install Script
 #
-# Copyright (c) 2015, Edward Guan <edward.guan@mkcorp.com>
-# All rights reserved.
-# Distributed under the GNU General Public License, version 3.0.
-#
-# Intro: http://www.cnblogs.com/edward2013/p/5061511.html
-#
+# Maintainer Vyom Tandon <vyom.x.tandon.-nd@disney.com>
 #====================================================================
 
-echo "Note: This tiny script has been hardcoded specifically for RHEL/CentOS"
+echo "This script has been specifically written for RHEL/CentOS environment"
 echo ""
 
 if [ $(id -u) != "0" ]; then
@@ -64,7 +59,7 @@ function update_rabbitmq_package() {
     if [ ! -f "$ERLANG_RPM_PATH" ]; then
         msg "WARNING: $ERLANG_RPM_PATH not found."
         msg "Try to download and install from $ERLANG_RPM_URL..."
-        wget $ERLANG_RPM_URL -P $SCRIPT_PATH || return 1
+        wget $ERLANG_RPM_URL -P $SCRIPT_PATH/packages/erlang || return 1
     fi
     install_result=$(rpm -U $ERLANG_RPM_PATH 2>&1 | awk '{gsub(/^[ \t]+/,"");print}')
     if [ -z "$install_result" ]; then
@@ -77,7 +72,7 @@ function update_rabbitmq_package() {
     if [ ! -f "$READLINE_RPM_PATH" ]; then
         msg "WARNING: $READLINE_RPM_PATH not found."
         msg "Try to download and install from $READLINE_RPM_URL..."
-        wget $READLINE_RPM_URL -P $SCRIPT_PATH || return 1
+        wget $READLINE_RPM_URL -P $SCRIPT_PATH/packages/readline || return 1
     fi
     install_result=$(rpm -U $READLINE_RPM_PATH 2>&1 | awk '{gsub(/^[ \t]+/,"");print}')
     if [ -z "$install_result" ]; then
@@ -90,10 +85,10 @@ function update_rabbitmq_package() {
     if [ ! -f "$SOCAT_RPM_PATH" ]; then
         msg "WARNING: $SOCAT_RPM_PATH not found."
         msg "Try to download and install from $SOCAT_RPM_URL..."
-        wget $SOCAT_RPM_URL -P $SCRIPT_PATH || return 1
+        wget $SOCAT_RPM_URL -P $SCRIPT_PATH/packages/socat || return 1
     fi
     if uname -r | grep -q el7; then
-        rpm --import "$SCRIPT_PATH/RPM-GPG-KEY-LUX"
+        rpm --import "$SCRIPT_PATH/keys/RPM-GPG-KEY-LUX"
     fi
     install_result=$(rpm -U $SOCAT_RPM_PATH 2>&1 | awk '{gsub(/^[ \t]+/,"");print}')
     if [ -z "$install_result" ]; then
@@ -106,7 +101,7 @@ function update_rabbitmq_package() {
     if [ ! -f "$RABBITMQ_KEY_PATH" ]; then
         msg "WARNING: $RABBITMQ_KEY_PATH not found."
         msg "Try to download and import from $RABBITMQ_KEY_URL..."
-        wget $RABBITMQ_KEY_URL -P $SCRIPT_PATH || return 1
+        wget $RABBITMQ_KEY_URL -P $SCRIPT_PATH/keys || return 1
     fi
     rpm --import $RABBITMQ_KEY_PATH && success "Imported $RABBITMQ_KEY_PATH"
 
@@ -114,7 +109,7 @@ function update_rabbitmq_package() {
     if [ ! -f "$RABBITMQ_RPM_PATH" ]; then
         msg "WARNING: $RABBITMQ_RPM_PATH not found."
         msg "Try to download and install from $RABBITMQ_RPM_URL..."
-        wget $RABBITMQ_RPM_URL -P $SCRIPT_PATH || return 1
+        wget $RABBITMQ_RPM_URL -P $SCRIPT_PATH/packages/rabbitmq || return 1
     fi
     install_result=$(rpm -U $RABBITMQ_RPM_PATH 2>&1 | awk '{gsub(/^[ \t]+/,"");print}')
     if [ -z "$install_result" ]; then
@@ -156,12 +151,34 @@ function install_rabbitmq() {
         error "$(rpm -q rabbitmq-server) is already installed"
     update_rabbitmq_package || return 1
 
-    # enable rabbitmq plugin
-    rabbitmq-plugins enable rabbitmq_management >/dev/null && \
-        success "Enabled rabbitmq plugin [rabbitmq_management]" || return 1
+    curl -sL -o /usr/lib/rabbitmq/plugins/rabbitmq_delayed_message_exchange-${DELAYED_MESSAGE_VERSION}.ez  ${RABBITMQ_DELAYED_MESSAGE_PLUGIN}
+    curl -sL -o /usr/lib/rabbitmq/plugins/rabbitmq_message_timestamp-${MESSAGE_TIMESTAMP_VERSION}.ez  ${RABBITMQ_MESSAGE_TIMESTAMP_PLUGIN}
+    curl -sL -o /usr/lib/rabbitmq/plugins/rabbitmq_top-${TOP_VERSION}.ez  ${RABBITMQ_TOP_PLUGIN}
+    curl -sL -o /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz  ${RABBITMQ_AUTOCLUSTER_PLUGIN}
+    tar -xvz -C /usr/lib/rabbitmq -f /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
+    rm /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
 
-    rabbitmq-plugins enable rabbitmq_shovel rabbitmq_shovel_management >/dev/null && \
-        success "Enabled rabbitmq plugin [rabbitmq_shovel,rabbitmq_shovel_management]" || return 1
+    # enable rabbitmq plugin
+    rabbitmq-plugins enable autocluster \
+        rabbitmq_delayed_message_exchange \
+        rabbitmq_management \
+        rabbitmq_management_visualiser \
+        rabbitmq_consistent_hash_exchange \
+        rabbitmq_federation \
+        rabbitmq_federation_management \
+        rabbitmq_message_timestamp \
+#        rabbitmq_mqtt \
+#        rabbitmq_recent_history_exchange \
+#        rabbitmq_sharding \
+#        rabbitmq_shovel \
+#        rabbitmq_shovel_management \
+#        rabbitmq_stomp \
+#        rabbitmq_top \
+#        rabbitmq_web_stomp \
+          >/dev/null && \
+        success "Enabled rabbitmq plugin [autocluster, rabbitmq_delayed_message_exchange, rabbitmq_management, rabbitmq_management_visualiser, rabbitmq_consistent_hash_exchange, rabbitmq_federation, rabbitmq_federation_management, rabbitmq_message_timestamp, rabbitmq_mqtt, rabbitmq_recent_history_exchange, rabbitmq_sharding, rabbitmq_shovel, rabbitmq_shovel_management, rabbitmq_stomp, rabbitmq_top, rabbitmq_web_stomp]" || return 1
+    
+    rabbitmq-plugins list
 
     # open firewall ports
     open_rabbitmq_ports && \
@@ -169,7 +186,7 @@ function install_rabbitmq() {
         return 1
 
     # deploy rabbitmq.config
-    RABBITMQ_CONFIG_PATH="$SCRIPT_PATH/$RABBITMQ_CONFIG_FILE"
+    RABBITMQ_CONFIG_PATH="$SCRIPT_PATH/config/$RABBITMQ_CONFIG_FILE"
     RABBITMQ_CONFIG_LOCATION=/etc/rabbitmq/rabbitmq.config
     cp $RABBITMQ_CONFIG_PATH $RABBITMQ_CONFIG_LOCATION && \
         success "Copyed $RABBITMQ_CONFIG_PATH to $RABBITMQ_CONFIG_LOCATION" || return 1
@@ -183,6 +200,8 @@ function install_rabbitmq() {
         msg "[$HOST_ENTRY] is already added into /etc/hosts"
     fi
 
+    chmod 755 -R /etc/rabbitmq /usr/lib/rabbitmq  /var/lib/rabbitmq
+    
     # set erlang cookie
     [ "x$COOKIE" == "x" ] && COOKIE="$ERLANG_COOKIE"
     ERLANG_COOKIE_PATH=/var/lib/rabbitmq/.erlang.cookie
@@ -270,28 +289,28 @@ done
 SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # load settings
-source "$SCRIPT_PATH/settings.conf" || exit 1
+source "$SCRIPT_PATH/config/settings.conf" || exit 1
 
 # set erlang and rabbitmq rpm & key path
 case $(uname -r) in
     *el7*)
-        ERLANG_RPM_PATH="$SCRIPT_PATH/${ERLANG_EL7_RPM_URL##*/}";
+        ERLANG_RPM_PATH="$SCRIPT_PATH/package/erlang/${ERLANG_EL7_RPM_URL##*/}";
         ERLANG_RPM_URL="$ERLANG_EL7_RPM_URL";
-        READLINE_RPM_PATH="$SCRIPT_PATH/${READLINE_EL7_RPM_URL##*/}";
+        READLINE_RPM_PATH="$SCRIPT_PATH/package/readline/${READLINE_EL7_RPM_URL##*/}";
         READLINE_RPM_URL="$READLINE_EL7_RPM_URL";
-        SOCAT_RPM_PATH="$SCRIPT_PATH/${SOCAT_EL7_RPM_URL##*/}";
+        SOCAT_RPM_PATH="$SCRIPT_PATH/package/socat/${SOCAT_EL7_RPM_URL##*/}";
         SOCAT_RPM_URL="$SOCAT_EL7_RPM_URL" ;;
     *el6*|*amzn1*)
-        ERLANG_RPM_PATH="$SCRIPT_PATH/${ERLANG_EL6_RPM_URL##*/}";
+        ERLANG_RPM_PATH="$SCRIPT_PATH/package/erlang/${ERLANG_EL6_RPM_URL##*/}";
         ERLANG_RPM_URL="$ERLANG_EL6_RPM_URL";
-        READLINE_RPM_PATH="$SCRIPT_PATH/${READLINE_EL6_RPM_URL##*/}";
+        READLINE_RPM_PATH="$SCRIPT_PATH/package/readline/${READLINE_EL6_RPM_URL##*/}";
         READLINE_RPM_URL="$READLINE_EL6_RPM_URL";
-        SOCAT_RPM_PATH="$SCRIPT_PATH/${SOCAT_EL6_RPM_URL##*/}";
+        SOCAT_RPM_PATH="$SCRIPT_PATH/package/socat/${SOCAT_EL6_RPM_URL##*/}";
         SOCAT_RPM_URL="$SOCAT_EL6_RPM_URL" ;;
     *) error "Your system is not RHEL/CentOS" ;;
 esac
-RABBITMQ_RPM_PATH="$SCRIPT_PATH/${RABBITMQ_RPM_URL##*/}"
-RABBITMQ_KEY_PATH="$SCRIPT_PATH/${RABBITMQ_KEY_URL##*/}"
+RABBITMQ_RPM_PATH="$SCRIPT_PATH/package/rabbitmq/${RABBITMQ_RPM_URL##*/}"
+RABBITMQ_KEY_PATH="$SCRIPT_PATH/keys/${RABBITMQ_KEY_URL##*/}"
 
 if [ "x$ACTION" == "x" ] && [ "x$SERVER" == "x" ]; then
     error "$(basename "$0"): missing operand\n" \
