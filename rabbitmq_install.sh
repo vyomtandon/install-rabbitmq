@@ -154,9 +154,10 @@ function install_rabbitmq() {
     curl -sL -o /usr/lib/rabbitmq/plugins/rabbitmq_delayed_message_exchange-${DELAYED_MESSAGE_VERSION}.ez  ${RABBITMQ_DELAYED_MESSAGE_PLUGIN}
     curl -sL -o /usr/lib/rabbitmq/plugins/rabbitmq_message_timestamp-${MESSAGE_TIMESTAMP_VERSION}.ez  ${RABBITMQ_MESSAGE_TIMESTAMP_PLUGIN}
     curl -sL -o /usr/lib/rabbitmq/plugins/rabbitmq_top-${TOP_VERSION}.ez  ${RABBITMQ_TOP_PLUGIN}
-    curl -sL -o /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz  ${RABBITMQ_AUTOCLUSTER_PLUGIN}
-    tar -xvz -C /usr/lib/rabbitmq -f /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
-    rm /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
+#    curl -sL -o /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz  ${RABBITMQ_AUTOCLUSTER_PLUGIN}
+#    tar -xvz -C /usr/lib/rabbitmq -f /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
+#    rm /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
+     cp ./plugins/* /usr/lib/rabbitmq/plugins/
 
     # enable rabbitmq plugin
     rabbitmq-plugins enable autocluster \
@@ -176,7 +177,6 @@ function install_rabbitmq() {
 #        rabbitmq_top \
 #        rabbitmq_web_stomp \
           >/dev/null && \
-        success "Enabled rabbitmq plugin [autocluster, rabbitmq_delayed_message_exchange, rabbitmq_management, rabbitmq_management_visualiser, rabbitmq_consistent_hash_exchange, rabbitmq_federation, rabbitmq_federation_management, rabbitmq_message_timestamp, rabbitmq_mqtt, rabbitmq_recent_history_exchange, rabbitmq_sharding, rabbitmq_shovel, rabbitmq_shovel_management, rabbitmq_stomp, rabbitmq_top, rabbitmq_web_stomp]" || return 1
     
     rabbitmq-plugins list
 
@@ -220,7 +220,7 @@ function install_rabbitmq() {
 
 function join_rabbitmq_cluster() {
     local ret=0
-    
+    printf $privateDNS
         if [ "x$privateDNS" != "x" ] && [ "$privateDNS" != $(hostname) ]; then
             if program_exists rabbitmqctl; then
                 rabbitmqctl stop_app >/dev/null
@@ -348,7 +348,8 @@ if [ "$ACTION" == "install" ]; then
         msg "© `date +%Y`"
     } || error "Failed install rabbitmq server"
 else
-    for privateDNS in ${SERVER//;/ } ; do 
+    for privateDNS in ${SERVER//;/ } ; do
+    printf $privateDNS
         if [ "x$SERVER" != "x" ]; then
             join_rabbitmq_cluster && {
                 msg "\nThanks for joining rabbitmq-server."
