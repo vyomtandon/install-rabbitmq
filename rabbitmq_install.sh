@@ -157,7 +157,7 @@ function install_rabbitmq() {
 #    curl -sL -o /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz  ${RABBITMQ_AUTOCLUSTER_PLUGIN}
 #    tar -xvz -C /usr/lib/rabbitmq -f /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
 #    rm /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
-     cp ./plugins/* /usr/lib/rabbitmq/plugins/
+     cp $SCRIPT_PATH/plugins/* /usr/lib/rabbitmq/plugins/
 
     # enable rabbitmq plugin
     rabbitmq-plugins enable autocluster \
