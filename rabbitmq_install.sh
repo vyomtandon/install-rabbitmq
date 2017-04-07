@@ -353,7 +353,7 @@ else
             join_rabbitmq_cluster && {
                 msg "\nThanks for joining rabbitmq-server."
                 msg "© `date +%Y`"
-            } break || error "Failed join rabbitmq server"
+            } && break || error "Failed join rabbitmq server"
         fi
     done
 fi
