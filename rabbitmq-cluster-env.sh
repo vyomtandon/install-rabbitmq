@@ -13,7 +13,11 @@
 
 export $(head -n 1 /etc/sysconfig/rabbitmq-join)
 
+echo ******************************************************************************************************************************************
+echo ${RABBITMQ_JOIN%;*}
+echo ******************************************************************************************************************************************
+
 # get script path
 export SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-/usr/bin/sh $SCRIPT_PATH/rabbitmq_install.sh -i -c ZTXOCZYZWBCFLBPOBEUQ -j rabbit@${RABBITMQ_JOIN%;*}
+/usr/bin/sh $SCRIPT_PATH/rabbitmq_install.sh -i -c ZTXOCZYZWBCFLBPOBEUQ -j ${RABBITMQ_JOIN%;*}
