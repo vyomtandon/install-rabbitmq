@@ -192,10 +192,10 @@ function install_rabbitmq() {
         success "Copyed $RABBITMQ_CONFIG_PATH to $RABBITMQ_CONFIG_LOCATION" || return 1
 
     # add host entry into /etc/hosts
-    HOST_ENTRY=$(egrep "127.0.0.1 +$(hostname -s)" /etc/hosts)
+    HOST_ENTRY=$(egrep "127.0.0.1 +$(hostname)" /etc/hosts)
     if [ "x$HOST_ENTRY" == "x" ]; then
-        echo "127.0.0.1   $(hostname -s)" >> /etc/hosts && \
-        success "Added [127.0.0.1   $(hostname -s)] into /etc/hosts" || return 1
+        echo "127.0.0.1   $(hostname)" >> /etc/hosts && \
+        success "Added [127.0.0.1   $(hostname)] into /etc/hosts" || return 1
     else
         msg "[$HOST_ENTRY] is already added into /etc/hosts"
     fi
@@ -220,26 +220,28 @@ function install_rabbitmq() {
 
 function join_rabbitmq_cluster() {
     local ret=0
-    if [ "x$SERVER" != "x" ] && [ "$SERVER" != $(hostname -s) ]; then
-        if program_exists rabbitmqctl; then
-            rabbitmqctl stop_app >/dev/null
-            rabbitmqctl reset >/dev/null
-            if [ "$NODE" == "ram" ]; then
-                rabbitmqctl join_cluster --ram rabbit@$SERVER >/dev/null || let ret++
+    
+        if [ "x$privateDNS" != "x" ] && [ "$privateDNS" != $(hostname) ]; then
+            if program_exists rabbitmqctl; then
+                rabbitmqctl stop_app >/dev/null
+                rabbitmqctl reset >/dev/null
+                if [ "$NODE" == "ram" ]; then
+                    rabbitmqctl join_cluster --ram rabbit@$privateDNS >/dev/null || let ret++
+                else
+                    rabbitmqctl join_cluster rabbit@$privateDNS >/dev/null || let ret++
+                fi
+                rabbitmqctl start_app >/dev/null
             else
-                rabbitmqctl join_cluster rabbit@$SERVER >/dev/null || let ret++
+                msg "Command not find: rabbitmqctl" && return 1
             fi
-            rabbitmqctl start_app >/dev/null
-        else
-            msg "Command not find: rabbitmqctl" && return 1
+            if [ "$ret" -eq 0 ]; then
+                success "Joined rabbit@$privateDNS"
+                return 0
+            else
+                return 1
+            fi
         fi
-        if [ "$ret" -eq 0 ]; then
-            success "Joined rabbit@$SERVER"
-            return 0
-        else
-            return 1
-        fi
-    fi
+        
 }
 
 function restart_rabbitmq() {
@@ -346,10 +348,12 @@ if [ "$ACTION" == "install" ]; then
         msg "© `date +%Y`"
     } || error "Failed install rabbitmq server"
 else
-    if [ "x$SERVER" != "x" ]; then
-        join_rabbitmq_cluster && {
-            msg "\nThanks for joining rabbitmq-server."
-            msg "© `date +%Y`"
-        } || error "Failed join rabbitmq server"
-    fi
+    for privateDNS in ${SERVER//;/ } ; do 
+        if [ "x$SERVER" != "x" ]; then
+            join_rabbitmq_cluster && {
+                msg "\nThanks for joining rabbitmq-server."
+                msg "© `date +%Y`"
+            } break || error "Failed join rabbitmq server"
+        fi
+    done
 fi
