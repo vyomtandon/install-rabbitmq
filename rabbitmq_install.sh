@@ -52,7 +52,7 @@ function erase_rabbitmq() {
 }
 
 function update_rabbitmq_package() {
-    # install required package
+    # install required packages
     program_exists wget || yum -y install wget >/dev/null 2>&1
 
     # install erlang rpm
@@ -65,7 +65,7 @@ function update_rabbitmq_package() {
     if [ -z "$install_result" ]; then
         success "Installed $ERLANG_RPM_PATH"
     else
-    	echo -e $install_result
+        echo -e $install_result
     fi
 
     # install readline rpm
@@ -78,7 +78,7 @@ function update_rabbitmq_package() {
     if [ -z "$install_result" ]; then
         success "Installed $READLINE_RPM_PATH"
     else
-    	echo -e $install_result
+        echo -e $install_result
     fi
 
     # install socat rpm
@@ -115,7 +115,7 @@ function update_rabbitmq_package() {
     if [ -z "$install_result" ]; then
         success "Installed $RABBITMQ_RPM_PATH"
     else
-    	echo -e $install_result
+        echo -e $install_result
     fi
 }
 
@@ -146,39 +146,58 @@ function set_rabbitmq_policies() {
     fi
 }
 
+function update_rabbitmq_plugins() {
+    if program_exists rabbitmqctl; then
+        
+        program_exists curl || yum -y install curl >/dev/null 2>&1
+
+        # enable rabbitmq plugin
+        rabbitmq-plugins enable rabbitmq_management rabbitmq_management_visualiser >/dev/null && \
+            success "Enabled rabbitmq plugin [rabbitmq_management, rabbitmq_management_visualiser]" || return 1
+
+        rabbitmq-plugins enable rabbitmq_shovel rabbitmq_shovel_management >/dev/null && \
+            success "Enabled rabbitmq plugin [rabbitmq_shovel,rabbitmq_shovel_management]" || return 1
+
+        rabbitmq-plugins enable rabbitmq_federation rabbitmq_federation_management >/dev/null && \
+            success "Enabled rabbitmq plugin [rabbitmq_federation,rabbitmq_federation_management]" || return 1
+
+        curl -sL -o /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz  ${RABBITMQ_AUTOCLUSTER_PLUGIN}
+        tar -xvz -C /usr/lib/rabbitmq/lib/rabbitmq_server-${RABBITMQ_VERSION} -f /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
+        rm /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
+
+        rabbitmq-plugins enable autocluster >/dev/null && \
+            success "Enabled rabbitmq plugin [autocluster]" || return 1
+
+        #    curl -sL -o /usr/lib/rabbitmq/rabbitmq_server-${RABBITMQ_VERSION}/plugins/rabbitmq_delayed_message_exchange-${DELAYED_MESSAGE_VERSION}.ez  ${RABBITMQ_DELAYED_MESSAGE_PLUGIN}
+        #    curl -sL -o /usr/lib/rabbitmq/rabbitmq_server-${RABBITMQ_VERSION}/plugins/:wq-${MESSAGE_TIMESTAMP_VERSION}.ez  ${RABBITMQ_MESSAGE_TIMESTAMP_PLUGIN}
+        #    curl -sL -o /usr/lib/rabbitmq/rabbitmq_server-${RABBITMQ_VERSION}/plugins/rabbitmq_top-${TOP_VERSION}.ez  ${RABBITMQ_TOP_PLUGIN}
+        #     cp $SCRIPT_PATH/plugins/* /usr/lib/rabbitmq/plugins/
+
+            # enable rabbitmq plugin
+        #    rabbitmq-plugins enable --offline  \
+        #        rabbitmq_delayed_message_exchange \
+        #        rabbitmq_consistent_hash_exchange \
+        #        rabbitmq_message_timestamp \
+        #        rabbitmq_mqtt \
+        #        rabbitmq_recent_history_exchange \
+        #        rabbitmq_sharding \
+        #        rabbitmq_stomp \
+        #        rabbitmq_top \
+        #        rabbitmq_web_stomp \
+        #        >/dev/null && \
+
+        rabbitmq-plugins list
+    else
+        msg "Command not find: rabbitmqctl" && return 1
+    fi
+}
+
 function install_rabbitmq() {
     rpm -q rabbitmq-server >/dev/null && \
         error "$(rpm -q rabbitmq-server) is already installed"
     update_rabbitmq_package || return 1
 
-    curl -sL -o /usr/lib/rabbitmq/plugins/rabbitmq_delayed_message_exchange-${DELAYED_MESSAGE_VERSION}.ez  ${RABBITMQ_DELAYED_MESSAGE_PLUGIN}
-    curl -sL -o /usr/lib/rabbitmq/plugins/rabbitmq_message_timestamp-${MESSAGE_TIMESTAMP_VERSION}.ez  ${RABBITMQ_MESSAGE_TIMESTAMP_PLUGIN}
-    curl -sL -o /usr/lib/rabbitmq/plugins/rabbitmq_top-${TOP_VERSION}.ez  ${RABBITMQ_TOP_PLUGIN}
-#    curl -sL -o /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz  ${RABBITMQ_AUTOCLUSTER_PLUGIN}
-#    tar -xvz -C /usr/lib/rabbitmq -f /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
-#    rm /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
-     cp $SCRIPT_PATH/plugins/* /usr/lib/rabbitmq/plugins/
-
-    # enable rabbitmq plugin
-    rabbitmq-plugins enable autocluster \
-        rabbitmq_delayed_message_exchange \
-        rabbitmq_management \
-        rabbitmq_management_visualiser \
-        rabbitmq_consistent_hash_exchange \
-        rabbitmq_federation \
-        rabbitmq_federation_management \
-        rabbitmq_message_timestamp \
-#        rabbitmq_mqtt \
-#        rabbitmq_recent_history_exchange \
-#        rabbitmq_sharding \
-#        rabbitmq_shovel \
-#        rabbitmq_shovel_management \
-#        rabbitmq_stomp \
-#        rabbitmq_top \
-#        rabbitmq_web_stomp \
-          >/dev/null && \
-    
-    rabbitmq-plugins list
+    update_rabbitmq_plugins || return 1
 
     # open firewall ports
     open_rabbitmq_ports && \
@@ -201,7 +220,7 @@ function install_rabbitmq() {
     fi
 
     chmod 755 -R /etc/rabbitmq /usr/lib/rabbitmq  /var/lib/rabbitmq
-    
+
     # set erlang cookie
     [ "x$COOKIE" == "x" ] && COOKIE="$ERLANG_COOKIE"
     ERLANG_COOKIE_PATH=/var/lib/rabbitmq/.erlang.cookie
@@ -241,7 +260,7 @@ function join_rabbitmq_cluster() {
                 return 1
             fi
         fi
-        
+
 }
 
 function restart_rabbitmq() {
@@ -296,22 +315,22 @@ source "$SCRIPT_PATH/config/settings.conf" || exit 1
 # set erlang and rabbitmq rpm & key path
 case $(uname -r) in
     *el7*)
-        ERLANG_RPM_PATH="$SCRIPT_PATH/package/erlang/${ERLANG_EL7_RPM_URL##*/}";
+        ERLANG_RPM_PATH="$SCRIPT_PATH/packages/erlang/${ERLANG_EL7_RPM_URL##*/}";
         ERLANG_RPM_URL="$ERLANG_EL7_RPM_URL";
-        READLINE_RPM_PATH="$SCRIPT_PATH/package/readline/${READLINE_EL7_RPM_URL##*/}";
+        READLINE_RPM_PATH="$SCRIPT_PATH/packages/readline/${READLINE_EL7_RPM_URL##*/}";
         READLINE_RPM_URL="$READLINE_EL7_RPM_URL";
-        SOCAT_RPM_PATH="$SCRIPT_PATH/package/socat/${SOCAT_EL7_RPM_URL##*/}";
+        SOCAT_RPM_PATH="$SCRIPT_PATH/packages/socat/${SOCAT_EL7_RPM_URL##*/}";
         SOCAT_RPM_URL="$SOCAT_EL7_RPM_URL" ;;
     *el6*|*amzn1*)
-        ERLANG_RPM_PATH="$SCRIPT_PATH/package/erlang/${ERLANG_EL6_RPM_URL##*/}";
+        ERLANG_RPM_PATH="$SCRIPT_PATH/packages/erlang/${ERLANG_EL6_RPM_URL##*/}";
         ERLANG_RPM_URL="$ERLANG_EL6_RPM_URL";
-        READLINE_RPM_PATH="$SCRIPT_PATH/package/readline/${READLINE_EL6_RPM_URL##*/}";
+        READLINE_RPM_PATH="$SCRIPT_PATH/packages/readline/${READLINE_EL6_RPM_URL##*/}";
         READLINE_RPM_URL="$READLINE_EL6_RPM_URL";
-        SOCAT_RPM_PATH="$SCRIPT_PATH/package/socat/${SOCAT_EL6_RPM_URL##*/}";
+        SOCAT_RPM_PATH="$SCRIPT_PATH/packages/socat/${SOCAT_EL6_RPM_URL##*/}";
         SOCAT_RPM_URL="$SOCAT_EL6_RPM_URL" ;;
     *) error "Your system is not RHEL/CentOS" ;;
 esac
-RABBITMQ_RPM_PATH="$SCRIPT_PATH/package/rabbitmq/${RABBITMQ_RPM_URL##*/}"
+RABBITMQ_RPM_PATH="$SCRIPT_PATH/packages/rabbitmq/${RABBITMQ_RPM_URL##*/}"
 RABBITMQ_KEY_PATH="$SCRIPT_PATH/keys/${RABBITMQ_KEY_URL##*/}"
 
 if [ "x$ACTION" == "x" ] && [ "x$SERVER" == "x" ]; then
