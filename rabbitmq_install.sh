@@ -148,7 +148,7 @@ function set_rabbitmq_policies() {
 
 function update_rabbitmq_plugins() {
     if program_exists rabbitmqctl; then
-        
+
         program_exists curl || yum -y install curl >/dev/null 2>&1
 
         # enable rabbitmq plugin
@@ -161,9 +161,9 @@ function update_rabbitmq_plugins() {
         rabbitmq-plugins enable rabbitmq_federation rabbitmq_federation_management >/dev/null && \
             success "Enabled rabbitmq plugin [rabbitmq_federation,rabbitmq_federation_management]" || return 1
 
-        curl -sL -o /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz  ${RABBITMQ_AUTOCLUSTER_PLUGIN}
-        tar -xvz -C /usr/lib/rabbitmq/lib/rabbitmq_server-${RABBITMQ_VERSION} -f /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
-        rm /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
+#        curl -sL -o /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz  ${RABBITMQ_AUTOCLUSTER_PLUGIN}
+#        tar -xvz -C /usr/lib/rabbitmq/lib/rabbitmq_server-${RABBITMQ_VERSION} -f /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
+#        rm /tmp/autocluster-${AUTOCLUSTER_VERSION}.tgz
 
         rabbitmq-plugins enable autocluster >/dev/null && \
             success "Enabled rabbitmq plugin [autocluster]" || return 1
